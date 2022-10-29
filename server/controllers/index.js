@@ -3,6 +3,7 @@ const models = require('../models');
 
 // get the Cat model
 const { Cat } = models;
+const { Dog } = models;
 
 // default fake data so that we have something to work with until we make a real Cat
 const defaultData = {
@@ -81,6 +82,12 @@ const hostPage2 = (req, res) => {
 // Function to render the untemplated page3.
 const hostPage3 = (req, res) => {
   res.render('page3');
+};
+
+// Render page 4 with a list of dogs
+const hostPage4 = async (req, res) => {
+  const docs = await Dog.find({}).lean().exec();
+  return res.render('page4', { dogs: docs });
 };
 
 // Get name will return the name of the last added cat.
@@ -241,12 +248,81 @@ const notFound = (req, res) => {
   });
 };
 
+
+//Simple MVC HW
+//Adds a new dog to the database
+const addDog = async (req, res) => {
+  //check if the user has added all the correct params
+  if (!req.body.name || !req.body.breed || !req.body.age) {
+    return res.status(400).json({ error: 'name, breed and age are all required' });
+  }
+  
+  //if all parameters check out, use the data to add the dog to the database
+  const dogData = {
+    name: req.body.name,
+    breed: req.body.breed,
+    age: req.body.age,
+  };
+  
+  const newDog = new Dog(dogData);
+  
+  try {
+    await newDog.save();
+  } catch (err) {
+    console.log(err);
+    return res.status(500).json({ error: 'failed to create dog' });
+  }
+
+  return res.json(dogData);
+};
+
+//Finds a dog by name in the database
+const findDog = async (req, res) => {
+    if (!req.query.name) {
+      return res.status(400).json({ error: 'name is required to perform a search' });
+    }
+  
+    let doc;
+
+    //Find the dog in the database
+    try {
+      doc = await Dog.findOne({ name: req.query.name }).exec();
+    } catch (err) {
+      console.log(err);
+      return res.status(500).json({ error: 'Something went wrong' });
+    }
+  
+    if (!doc) {
+      return res.json({ error: 'No dogs found' });
+    }
+
+    //increment the dog's age by 1, first locally, then in the database
+    doc.age++;
+
+    //if something goes wrong
+    const savePromise = doc.save()
+    savePromise.catch((err) => {
+      console.log(err);
+      return res.status(500).json({ error: 'Something went wrong' });
+    })
+  
+    //Return the dog being searched for
+    return res.json({
+      name: doc.name,
+      breed: doc.breed,
+      age: doc.age
+    });
+};
+
 // export the relevant public controller functions
 module.exports = {
   index: hostIndex,
   page1: hostPage1,
   page2: hostPage2,
   page3: hostPage3,
+  page4: hostPage4,
+  addDog,
+  findDog,
   getName,
   setName,
   updateLast,
